@@ -61,32 +61,41 @@ function AbsenceMeter({ used, allowed }) {
 
 export default function StudentDashboard() {
   const [students, setStudents] = useState([]);
-  const [studentId, setStudentId] = useState("S1");
-  const [rows, setRows] = useState([]);
-  const [student, setStudent] = useState(null);
+  const [dashboards, setDashboards] = useState({}); // { [studentId]: { student, rows } }
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    (async () => {
+  const loadAll = async () => {
+    setLoading(true);
+    setError("");
+    try {
       const list = await portalApi.getStudents();
       setStudents(list);
-      if (list.length && !list.find((s) => s.id === studentId)) {
-        setStudentId(list[0].id);
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+
+      // Fetch dashboards for all students in parallel
+      const results = await Promise.all(
+        list.map(async (s) => {
+          const data = await portalApi.getStudentDashboard(s.id);
+          return [s.id, data];
+        })
+      );
+
+      const map = Object.fromEntries(results);
+      setDashboards(map);
+    } catch (e) {
+      setError("Failed to load students dashboard.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    (async () => {
-      const data = await portalApi.getStudentDashboard(studentId);
-      setStudent(data.student);
-      setRows(data.rows);
-    })();
-  }, [studentId]);
+    loadAll();
+  }, []);
 
   return (
     <div style={{ display: "grid", gap: 16 }}>
-      <Card title="Student Dashboard">
+      <Card title="Students Dashboard (All Students)">
         <div
           style={{
             display: "flex",
@@ -96,93 +105,140 @@ export default function StudentDashboard() {
             alignItems: "center",
           }}
         >
-          <div>
-            <div style={{ fontSize: 12, color: "#64748b" }}>
-              Selected student
-            </div>
-            <div style={{ fontWeight: 900, fontSize: 18 }}>
-              {student ? `${student.firstName} ${student.lastName}` : "—"}
-            </div>
+          <div style={{ fontSize: 13, color: "#64748b" }}>
+            Showing grades & absences for <b>{students.length}</b> students
           </div>
 
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <span style={{ fontSize: 12, color: "#64748b" }}>Switch</span>
-            <select
-              value={studentId}
-              onChange={(e) => setStudentId(e.target.value)}
-              style={{
-                border: "1px solid #e2e8f0",
-                borderRadius: 12,
-                padding: "10px 12px",
-              }}
-            >
-              {students.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.id} — {s.firstName} {s.lastName}
-                </option>
-              ))}
-            </select>
+          <button
+            onClick={loadAll}
+            style={{
+              borderRadius: 12,
+              border: "1px solid #0f172a",
+              background: "#0f172a",
+              color: "white",
+              padding: "10px 12px",
+              fontWeight: 900,
+              cursor: "pointer",
+            }}
+            type="button"
+            disabled={loading}
+          >
+            {loading ? "Refreshing..." : "Refresh"}
+          </button>
+        </div>
+
+        {error && (
+          <div
+            style={{
+              marginTop: 12,
+              border: "1px solid #fecaca",
+              background: "#fef2f2",
+              color: "#991b1b",
+              padding: 12,
+              borderRadius: 12,
+              fontWeight: 700,
+              fontSize: 13,
+            }}
+          >
+            {error}
           </div>
-        </div>
+        )}
       </Card>
 
-      <Card title="My Courses">
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-            gap: 12,
-          }}
-        >
-          {rows.map((r) => (
-            <div
-              key={r.id}
-              style={{
-                border: "1px solid #e2e8f0",
-                borderRadius: 14,
-                padding: 14,
-              }}
+      {/* One block per student */}
+      <div style={{ display: "grid", gap: 16 }}>
+        {students.map((s) => {
+          const data = dashboards[s.id];
+          const student = data?.student || s; // fallback to list item
+          const rows = data?.rows || [];
+
+          return (
+            <Card
+              key={s.id}
+              title={`${student.firstName ?? student.Fname ?? ""} ${
+                student.lastName ?? student.Lname ?? ""
+              } (ID: ${s.id})`}
             >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: 10,
-                }}
-              >
-                <div style={{ fontWeight: 900 }}>{r.course}</div>
-                <div style={{ fontSize: 12, color: "#64748b" }}>
-                  Absences left: <b>{r.absences_left}</b>
-                </div>
-              </div>
-
-              <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+              {loading && !data ? (
+                <div style={{ color: "#64748b", fontSize: 13 }}>Loading...</div>
+              ) : (
                 <div
-                  style={{ display: "flex", justifyContent: "space-between" }}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                    gap: 12,
+                  }}
                 >
-                  <span style={{ fontSize: 13, color: "#64748b" }}>Grade</span>
-                  <span style={{ fontWeight: 900 }}>
-                    {r.grade == null ? "—" : r.grade}
-                  </span>
-                </div>
-                <div
-                  style={{ display: "flex", justifyContent: "space-between" }}
-                >
-                  <span style={{ fontSize: 13, color: "#64748b" }}>
-                    Absences used
-                  </span>
-                  <span style={{ fontWeight: 900 }}>{r.absences_used}</span>
-                </div>
-              </div>
+                  {rows.map((r) => (
+                    <div
+                      key={r.id}
+                      style={{
+                        border: "1px solid #e2e8f0",
+                        borderRadius: 14,
+                        padding: 14,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: 10,
+                        }}
+                      >
+                        <div style={{ fontWeight: 900 }}>{r.course}</div>
+                        <div style={{ fontSize: 12, color: "#64748b" }}>
+                          Absences left: <b>{r.absences_left}</b>
+                        </div>
+                      </div>
 
-              <AbsenceMeter
-                used={r.absences_used}
-                allowed={r.absences_allowed}
-              />
-            </div>
-          ))}
-        </div>
-      </Card>
+                      <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                          }}
+                        >
+                          <span style={{ fontSize: 13, color: "#64748b" }}>
+                            Grade
+                          </span>
+                          <span style={{ fontWeight: 900 }}>
+                            {r.grade == null ? "—" : r.grade}
+                          </span>
+                        </div>
+
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                          }}
+                        >
+                          <span style={{ fontSize: 13, color: "#64748b" }}>
+                            Absences used
+                          </span>
+                          <span style={{ fontWeight: 900 }}>
+                            {r.absences_used}
+                          </span>
+                        </div>
+                      </div>
+
+                      <AbsenceMeter
+                        used={r.absences_used}
+                        allowed={r.absences_allowed}
+                      />
+                    </div>
+                  ))}
+
+                  {!rows.length && (
+                    <div style={{ color: "#64748b", fontSize: 13 }}>
+                      No courses found for this student.
+                    </div>
+                  )}
+                </div>
+              )}
+            </Card>
+          );
+        })}
+      </div>
     </div>
   );
 }
