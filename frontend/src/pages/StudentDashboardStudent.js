@@ -1,24 +1,25 @@
 import React, { useEffect, useState } from "react";
-import { portalApi } from "../services/portalApi";
+import axios from "axios";
 import { NavLink } from "react-router-dom";
 
+const API = "http://localhost:5000";
+
 const handleLogout = () => {
-  // Clear any stored session data (if applicable)
   localStorage.removeItem("portal_session");
   localStorage.removeItem("isLoggedIn");
-  // Redirect to login page
   window.location.href = "/login";
 };
 
-const logoutStyle = ({ isActive }) => ({
+const logoutStyle = () => ({
   padding: "8px 12px",
   borderRadius: 12,
   textDecoration: "none",
   fontWeight: 800,
   color: "white",
-  background: "#dc2626", // red
+  background: "#dc2626",
   border: "1px solid #b91c1c",
 });
+
 const containerStyle = {
   maxWidth: 1100,
   margin: "0 auto",
@@ -27,20 +28,21 @@ const containerStyle = {
   gap: 16,
 };
 
-// Optional: if you already have authApi/session, use it.
-// If not, it will fall back to "S1" so your UI still works.
-let getLoggedStudentId = () => "S1";
-try {
-  // If you have authApi from earlier:
-  // import { authApi } from "../services/authApi";
-  // then replace this whole try block with: const s = authApi.getSession(); return s?.studentId || "S1";
-  getLoggedStudentId = () => {
+// ✅ Extract numeric student id from session email like: "5@students.liu.edu"
+const getLoggedStudentId = () => {
+  try {
     const session = JSON.parse(
       localStorage.getItem("portal_session") || "null"
     );
-    return session?.studentId || "S1";
-  };
-} catch {}
+    const email =
+      session?.email || session?.username || session?.studentEmail || "";
+    const left = String(email).split("@")[0];
+    const id = left.replace(/\D/g, "");
+    return id || "";
+  } catch {
+    return "";
+  }
+};
 
 function Card({ title, children }) {
   return (
@@ -105,14 +107,29 @@ export default function StudentDashboardStudent() {
   const [rows, setRows] = useState([]);
   const [student, setStudent] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     (async () => {
       try {
         setLoading(true);
-        const data = await portalApi.getStudentDashboard(studentId);
-        setStudent(data.student);
-        setRows(data.rows);
+        setError("");
+
+        if (!studentId) {
+          setError("No student ID found in session. Please login again.");
+          setRows([]);
+          setStudent(null);
+          return;
+        }
+
+        // ✅ Uses your backend: GET /students/:id/dashboard
+        const res = await axios.get(`${API}/students/${studentId}/dashboard`);
+        setStudent(res.data?.student || null);
+        setRows(Array.isArray(res.data?.rows) ? res.data.rows : []);
+      } catch (e) {
+        setError(e.response?.data?.message || "Failed to load dashboard.");
+        setRows([]);
+        setStudent(null);
       } finally {
         setLoading(false);
       }
@@ -171,11 +188,25 @@ export default function StudentDashboardStudent() {
           </nav>
         </div>
       </header>
-      {/* ✅ THIS is what keeps it from being too wide */}
+
       <main style={containerStyle}>
         <Card title="My Dashboard">
           {loading ? (
             <div style={{ color: "#64748b", fontSize: 14 }}>Loading...</div>
+          ) : error ? (
+            <div
+              style={{
+                border: "1px solid #fecaca",
+                background: "#fef2f2",
+                color: "#991b1b",
+                padding: 12,
+                borderRadius: 12,
+                fontWeight: 800,
+                fontSize: 13,
+              }}
+            >
+              {error}
+            </div>
           ) : (
             <div
               style={{
@@ -189,14 +220,13 @@ export default function StudentDashboardStudent() {
               <div>
                 <div style={{ fontSize: 12, color: "#64748b" }}>Student</div>
                 <div style={{ fontWeight: 900, fontSize: 18 }}>
-                  {student ? `${student.firstName} ${student.lastName}` : "—"}
+                  {student ? `${student.Fname} ${student.Lname}` : "—"}
                 </div>
                 <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
                   ID: <b>{studentId}</b>
                 </div>
               </div>
 
-              {/* Quick summary */}
               <div
                 style={{
                   display: "grid",
@@ -313,7 +343,7 @@ export default function StudentDashboardStudent() {
               </div>
             ))}
 
-            {!loading && rows.length === 0 && (
+            {!loading && !error && rows.length === 0 && (
               <div style={{ color: "#64748b", fontSize: 14 }}>
                 No courses found for this student.
               </div>
