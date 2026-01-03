@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { portalApi } from "../services/portalApi";
+import axios from "axios";
 
 function Card({ title, children }) {
   return (
@@ -18,8 +18,8 @@ function Card({ title, children }) {
 }
 
 function AbsenceMeter({ used, allowed }) {
-  const safeAllowed = Math.max(0, allowed);
-  const safeUsed = Math.max(0, Math.min(used, safeAllowed));
+  const safeAllowed = Math.max(0, Number(allowed ?? 0));
+  const safeUsed = Math.max(0, Math.min(Number(used ?? 0), safeAllowed));
   const pct =
     safeAllowed === 0 ? 100 : Math.round((safeUsed / safeAllowed) * 100);
 
@@ -38,6 +38,7 @@ function AbsenceMeter({ used, allowed }) {
           {safeUsed}/{safeAllowed} ({pct}%)
         </span>
       </div>
+
       <div
         style={{
           height: 10,
@@ -60,30 +61,24 @@ function AbsenceMeter({ used, allowed }) {
 }
 
 export default function StudentDashboard() {
-  const [students, setStudents] = useState([]);
-  const [dashboards, setDashboards] = useState({}); // { [studentId]: { student, rows } }
+  const [dashboards, setDashboards] = useState([]); // [{ student, rows }]
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const loadAll = async () => {
     setLoading(true);
     setError("");
+
     try {
-      const list = await portalApi.getStudents();
-      setStudents(list);
-
-      // Fetch dashboards for all students in parallel
-      const results = await Promise.all(
-        list.map(async (s) => {
-          const data = await portalApi.getStudentDashboard(s.id);
-          return [s.id, data];
-        })
-      );
-
-      const map = Object.fromEntries(results);
-      setDashboards(map);
+      const res = await axios.get("http://localhost:5000/students/dashboard");
+      // backend returns an array: [{ student: {...}, rows: [...] }, ...]
+      setDashboards(Array.isArray(res.data) ? res.data : []);
     } catch (e) {
-      setError("Failed to load students dashboard.");
+      setError(
+        e.response?.data?.message ||
+          "Failed to load students dashboard (check backend route)."
+      );
+      setDashboards([]);
     } finally {
       setLoading(false);
     }
@@ -92,6 +87,8 @@ export default function StudentDashboard() {
   useEffect(() => {
     loadAll();
   }, []);
+
+  const totalStudents = dashboards.length;
 
   return (
     <div style={{ display: "grid", gap: 16 }}>
@@ -106,7 +103,8 @@ export default function StudentDashboard() {
           }}
         >
           <div style={{ fontSize: 13, color: "#64748b" }}>
-            Showing grades & absences for <b>{students.length}</b> students
+            Showing grades & absences for <b>{loading ? "…" : totalStudents}</b>{" "}
+            students
           </div>
 
           <button
@@ -119,6 +117,7 @@ export default function StudentDashboard() {
               padding: "10px 12px",
               fontWeight: 900,
               cursor: "pointer",
+              opacity: loading ? 0.7 : 1,
             }}
             type="button"
             disabled={loading}
@@ -145,22 +144,22 @@ export default function StudentDashboard() {
         )}
       </Card>
 
-      {/* One block per student */}
       <div style={{ display: "grid", gap: 16 }}>
-        {students.map((s) => {
-          const data = dashboards[s.id];
-          const student = data?.student || s; // fallback to list item
-          const rows = data?.rows || [];
+        {dashboards.map((item) => {
+          const student = item?.student || {};
+          const rows = Array.isArray(item?.rows) ? item.rows : [];
+
+          const fullName = `${student.Fname ?? ""} ${
+            student.Lname ?? ""
+          }`.trim();
+          const title = `${fullName || "Student"} (ID: ${student.id ?? "—"})`;
 
           return (
-            <Card
-              key={s.id}
-              title={`${student.firstName ?? student.Fname ?? ""} ${
-                student.lastName ?? student.Lname ?? ""
-              } (ID: ${s.id})`}
-            >
-              {loading && !data ? (
-                <div style={{ color: "#64748b", fontSize: 13 }}>Loading...</div>
+            <Card key={student.id ?? Math.random()} title={title}>
+              {!rows.length ? (
+                <div style={{ color: "#64748b", fontSize: 13 }}>
+                  No courses found for this student.
+                </div>
               ) : (
                 <div
                   style={{
@@ -227,12 +226,6 @@ export default function StudentDashboard() {
                       />
                     </div>
                   ))}
-
-                  {!rows.length && (
-                    <div style={{ color: "#64748b", fontSize: 13 }}>
-                      No courses found for this student.
-                    </div>
-                  )}
                 </div>
               )}
             </Card>
