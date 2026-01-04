@@ -18,6 +18,7 @@ export default function App() {
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/student" element={<StudentDashboardStudent />} />
         <Route path="/" element={<ProtectedRoutes />}>
           <Route element={<ProtectedRoutes allow="student" />}>
             <Route path="/student" element={<StudentDashboardStudent />} />
@@ -32,11 +33,11 @@ export default function App() {
           <Route index element={<RoleRedirect />} />
         </Route>
         {/* TEACHER ONLY */}
-        <Route element={<ProtectedRoutes allow="teacher" />}>
-          <Route path="/teacher" element={<TeacherDashboard />} />
-          <Route path="/students" element={<StudentDashboard />} />
-          <Route path="/admin" element={<AdminDashboard />} />
-        </Route>
+        {/* <Route element={<ProtectedRoutes allow="teacher" />}> */}
+        <Route path="/teacher" element={<TeacherDashboard />} />
+        <Route path="/students" element={<StudentDashboard />} />
+        <Route path="/admin" element={<AdminDashboard />} />
+        {/* </Route> */}
       </Route>
 
       <Route path="*" element={<NotFound />} />
