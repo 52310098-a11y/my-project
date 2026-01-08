@@ -1,4 +1,8 @@
+import express from "express";
+import cors from "cors";
+import mysql from "mysql";
 import dotenv from "dotenv";
+
 dotenv.config();
 
 const db = mysql.createPool({
