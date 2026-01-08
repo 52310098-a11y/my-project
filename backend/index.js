@@ -417,9 +417,5 @@ app.get("/students/:id/dashboard", (req, res) => {
   );
 });
 
-// (keep the rest of your CRUD + PUT dashboard as-is)
-
-// ===============================
-app.listen(5000, () => {
-  console.log("Server is running on port 5000");
-});
+//for deployment
+app.listen(process.env.PORT || 5000);
