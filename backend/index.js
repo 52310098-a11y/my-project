@@ -1,23 +1,19 @@
-import cors from "cors";
-import mysql from "mysql";
-import express from "express";
+import dotenv from "dotenv";
+dotenv.config();
+
+const db = mysql.createPool({
+  host: process.env.DB_HOST,
+  port: Number(process.env.DB_PORT || 3306),
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+});
 
 const app = express();
 
 // Middlewares
 app.use(cors());
 app.use(express.json());
-
-// ===============================
-// Database connection (MUST be before routes)
-// ===============================
-const db = mysql.createPool({
-  port: 3306,
-  host: "localhost",
-  user: "root",
-  password: "",
-  database: "project_db",
-});
 
 // Test DB connection
 db.getConnection((err) => {
@@ -221,56 +217,56 @@ app.get("/students/dashboard", (req, res) => {
   });
 });
 
-// GET /students/:id/dashboard  -> { student, rows }
-app.get("/students/:id/dashboard", (req, res) => {
-  const studentId = Number(req.params.id);
+// // GET /students/:id/dashboard  -> { student, rows }
+// app.get("/students/:id/dashboard", (req, res) => {
+//   const studentId = Number(req.params.id);
 
-  if (Number.isNaN(studentId)) {
-    return res.status(400).json({ message: "Student ID must be a number" });
-  }
+//   if (Number.isNaN(studentId)) {
+//     return res.status(400).json({ message: "Student ID must be a number" });
+//   }
 
-  db.query(
-    "SELECT id, Fname, Lname, Phone, Address FROM student WHERE id = ?",
-    [studentId],
-    (err, studentRows) => {
-      if (err) {
-        console.error("DASHBOARD GET ERROR:", err);
-        return res.status(500).json({ message: "Server error" });
-      }
+//   db.query(
+//     "SELECT id, Fname, Lname, Phone, Address FROM student WHERE id = ?",
+//     [studentId],
+//     (err, studentRows) => {
+//       if (err) {
+//         console.error("DASHBOARD GET ERROR:", err);
+//         return res.status(500).json({ message: "Server error" });
+//       }
 
-      if (!studentRows.length) {
-        return res.status(404).json({ message: "Student not found" });
-      }
+//       if (!studentRows.length) {
+//         return res.status(404).json({ message: "Student not found" });
+//       }
 
-      db.query(
-        `
-        SELECT 
-          sc.id,
-          sc.course_name AS course,
-          sc.grade,
-          sc.absences_used,
-          sc.absences_allowed,
-          (sc.absences_allowed - sc.absences_used) AS absences_left
-        FROM student_course sc
-        WHERE sc.student_id = ?
-        ORDER BY sc.course_name ASC
-        `,
-        [studentId],
-        (err2, rows) => {
-          if (err2) {
-            console.error("DASHBOARD GET ERROR:", err2);
-            return res.status(500).json({ message: "Server error" });
-          }
+//       db.query(
+//         `
+//         SELECT
+//           sc.id,
+//           sc.course_name AS course,
+//           sc.grade,
+//           sc.absences_used,
+//           sc.absences_allowed,
+//           (sc.absences_allowed - sc.absences_used) AS absences_left
+//         FROM student_course sc
+//         WHERE sc.student_id = ?
+//         ORDER BY sc.course_name ASC
+//         `,
+//         [studentId],
+//         (err2, rows) => {
+//           if (err2) {
+//             console.error("DASHBOARD GET ERROR:", err2);
+//             return res.status(500).json({ message: "Server error" });
+//           }
 
-          return res.status(200).json({
-            student: studentRows[0],
-            rows,
-          });
-        }
-      );
-    }
-  );
-});
+//           return res.status(200).json({
+//             student: studentRows[0],
+//             rows,
+//           });
+//         }
+//       );
+//     }
+//   );
+// });
 
 // PUT /students/:id/dashboard  -> updates grade + absences_used for courses
 app.put("/students/:id/dashboard", (req, res) => {
@@ -418,4 +414,4 @@ app.get("/students/:id/dashboard", (req, res) => {
 });
 
 //for deployment
-app.listen(process.env.PORT || 5000);
+app.listen(process.env.PORT || 5000, () => console.log("API running"));
