@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { NavLink } from "react-router-dom";
 
-const API = "http://localhost:5000";
+const API = "";
 
 const handleLogout = () => {
   localStorage.removeItem("portal_session");

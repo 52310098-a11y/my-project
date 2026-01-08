@@ -122,7 +122,7 @@ export default function AdminDashboard() {
   const getStudents = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await axios.get("http://localhost:5000/students");
+      const response = await axios.get("/students");
 
       if (response.status === 200) setStudents(response.data);
       if (response.status === 204) setStudents([]);
@@ -155,7 +155,7 @@ export default function AdminDashboard() {
 
     try {
       setIsLoading(true);
-      const response = await axios.post("http://localhost:5000/students", {
+      const response = await axios.post("/students", {
         Fname: fn,
         Lname: ln,
         Phone: ph,
@@ -202,10 +202,12 @@ export default function AdminDashboard() {
 
     try {
       setIsLoading(true);
-      const response = await axios.put(
-        `http://localhost:5000/students/${selectedId}`,
-        { Fname: fn, Lname: ln, Phone: ph, Address: ad }
-      );
+      const response = await axios.put(`/students/${selectedId}`, {
+        Fname: fn,
+        Lname: ln,
+        Phone: ph,
+        Address: ad,
+      });
 
       if (response.status === 200) {
         showSuccess(response.data?.message || "Student updated.");
@@ -225,9 +227,7 @@ export default function AdminDashboard() {
 
     try {
       setIsLoading(true);
-      const response = await axios.delete(
-        `http://localhost:5000/students/${confirmId}`
-      );
+      const response = await axios.delete(`/students/${confirmId}`);
 
       if (response.status === 200) {
         showSuccess(response.data?.message || "Student deleted.");

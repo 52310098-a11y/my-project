@@ -79,7 +79,7 @@ const btnLight = {
   cursor: "pointer",
 };
 
-const API = "http://localhost:5000";
+const API = "";
 
 export default function TeacherDashboard() {
   const [students, setStudents] = useState([]);

@@ -70,7 +70,7 @@ export default function StudentDashboard() {
     setError("");
 
     try {
-      const res = await axios.get("http://localhost:5000/students/dashboard");
+      const res = await axios.get("/students/dashboard");
       // backend returns an array: [{ student: {...}, rows: [...] }, ...]
       setDashboards(Array.isArray(res.data) ? res.data : []);
     } catch (e) {
